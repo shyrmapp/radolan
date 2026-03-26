@@ -1,56 +1,135 @@
 # radolan
-### Go package radolan parses the DWD RADOLAN / RADVOR radar composite format.
-This format is used by the [DWD](http://www.dwd.de/DE/leistungen/radolan/radolan.html)
-for weather radar data.
 
-The obtained results can be processed and visualized with additional functions.
-The example program `radolan2png` is included to quickly convert composite files to png images.
+Go package for parsing DWD RADOLAN and RADVOR-RE weather radar composites and working with the DWD polar stereographic grid.
 
-This library was developed for [Regenampel.de](https://regenampel.de/), but
-offers even more features for awesome ideas and projects.
+[![CI](https://github.com/shyrmapp/radolan/actions/workflows/ci.yml/badge.svg)](https://github.com/shyrmapp/radolan/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shyrmapp/radolan.svg)](https://pkg.go.dev/github.com/shyrmapp/radolan)
 
-Besides local scans, the following grids are currently supported:
-- National Grid (900km x 900km)
-- National Picture Grid (920km x 920km)
-- Extended National Grid (900km x 1100km)
-- DE1200 National Grid (1100km x 1200km)
-- Middle-European Grid (1400km x 1500km)
+## Background
 
-Tested input products: 
+[DWD Open Data](https://opendata.dwd.de/climate_environment/CDC/grids_germany/5_minutes/) publishes radar composites in the RADOLAN binary format covering Germany and surrounding areas. This package parses those composites and provides coordinate projection, Z-R conversion, and spatial sampling utilities.
 
-| Product | Grid              | Description             |
-| ------- | ----------------- | ----------------------- |
-| EX      | middle-european   | reflectivity            |
-| FX      | national          | nowcast reflectivity    |
-| FZ      | national          | nowcast reflectivity    |
-| PE      | local             | echo top                |
-| PF      | local             | reflectivity            |
-| PG      | national picture  | reflectivity            |
-| PR      | local             | doppler radial velocity |
-| PX      | local             | reflectivity            |
-| PZ      | local             | 3D reflectivity CAPPI   | 
-| RW      | national          | hourly accumulated      |
-| RX      | national          | reflectivity            |
-| SF      | national          | daily accumulated       |
-| WX      | extended national | reflectivity            | 
-| WN      | DE1200 Sphere     | nowcast reflectivity    |
-| WN      | DE1200 WGS84      | nowcast reflectivity    |
+This is a production-hardened fork of [jonnyschaefer/radolan](https://github.com/jonnyschaefer/radolan) (MIT). It has diverged significantly from the original and is not intended to be merged back upstream. Key changes:
 
-Those can be considered working with sufficient accuracy.
-Other formats _might_ be working (not tested).
+- **`ErrUnknownUnit` tolerance in `NewComposites`**: RV composites (5-min precipitation rate) trigger this error on valid data. The upstream library discards such composites; this fork continues and returns them — the data is usable.
+- **Format ≥ 5 projection fix**: RADVOR-RE nowcast composites use `Format=5` on the DE1200 national grid. The upstream projection returns NaN for this combination. This fork applies the correct WGS84 polar stereographic math.
+- **`PrecipitationRateAdaptive`**: Adaptive Z-R conversion that selects between JossWaldvogel70, Aniol80, and MarshallPalmer55 by intensity — closer to DWD operational practice than a single fixed relation.
+- **`NeighbourhoodSample`**: Spatial averaging over a grid neighbourhood, returning mean mm/h, max mm/h, and rain coverage fraction — useful for point precipitation estimation without single-pixel noise.
+- **`ProjectionFunc`**: Returns a pre-calibrated closure for repeated projection without per-call composite overhead — important for tight rendering loops.
+- **Go 1.22+ modernisation**: Range-over-int, `slices.SortFunc`, other idiomatic updates.
 
-### Documentation
-Documentation is included in the corresponding source files and also available at
-https://godoc.org/gitlab.cs.fau.de/since/radolan
+## Installation
 
-### Installation
-```
-mkdir -p ~/go/src ~/go/pkg ~/go/bin
-GOPATH="~/go" go get gitlab.cs.fau.de/since/radolan/radolan2png
+```sh
+go get github.com/shyrmapp/radolan
 ```
 
-### Sample image
-This image shows radar reflectivity (dBZ) captured 31.07.2016 18:50 CEST
-![alt text](https://gitlab.cs.fau.de/since/radolan/raw/master/assets/31-07-2016-1850.png)
+Requires Go 1.22 or later.
 
-Datenbasis: Deutscher Wetterdienst, Radardaten bildlich wiedergegeben
+## Usage
+
+### Parse a single composite (RADVOR-RE nowcast)
+
+```go
+f, err := os.Open("RV2025032615050.bin.gz")
+if err != nil { log.Fatal(err) }
+defer f.Close()
+
+comp, err := radolan.NewComposite(f)
+if err != nil && err != radolan.ErrUnknownUnit {
+    log.Fatal(err)
+}
+
+// Project a lat/lng to grid coordinates.
+x, y := comp.Project(52.52, 13.41) // Berlin
+mmh := radolan.PrecipitationRateAdaptive(comp.At(int(x), int(y)))
+fmt.Printf("Berlin: %.2f mm/h\n", mmh)
+```
+
+### Parse a tar.bz2 archive (RADOLAN RV, 5-min composites)
+
+RV archives contain multiple composites. `NewComposites` tolerates `ErrUnknownUnit`
+and returns all frames sorted by forecast time.
+
+```go
+f, err := os.Open("RV_latest.tar.bz2")
+if err != nil { log.Fatal(err) }
+defer f.Close()
+
+composites, err := radolan.NewComposites(f)
+if err != nil { log.Fatal(err) }
+fmt.Printf("Loaded %d frames, latest at %s\n",
+    len(composites), composites[len(composites)-1].ForecastTime)
+```
+
+### Spatial sampling around a point
+
+```go
+proj := comp.ProjectionFunc()
+x, y := proj(lat, lng)
+avgMMH, maxMMH, coverage := comp.NeighbourhoodSample(int(x), int(y), 2)
+fmt.Printf("avg %.2f mm/h, max %.2f mm/h, coverage %.0f%%\n",
+    avgMMH, maxMMH, coverage*100)
+```
+
+### Z-R conversion
+
+```go
+// Adaptive (recommended): selects relation by intensity
+mmh := radolan.PrecipitationRateAdaptive(dBZ)
+
+// Fixed relation (DWD operational Germany)
+mmh = radolan.PrecipitationRate(radolan.Aniol80, dBZ)
+
+// Inverse: mm/h → dBZ
+dbz := radolan.Reflectivity(radolan.Aniol80, mmh)
+```
+
+## Supported products
+
+| Product | Grid              | Description                      | Notes                     |
+|---------|-------------------|----------------------------------|---------------------------|
+| EX      | Middle-European   | Reflectivity                     |                           |
+| FX      | National          | Nowcast reflectivity             |                           |
+| FZ      | National          | Nowcast reflectivity             |                           |
+| PE      | Local             | Echo top                         |                           |
+| PF      | Local             | Reflectivity                     |                           |
+| PG      | National picture  | Reflectivity                     |                           |
+| PR      | Local             | Doppler radial velocity          |                           |
+| PX      | Local             | Reflectivity                     |                           |
+| PZ      | Local             | 3D reflectivity CAPPI            |                           |
+| RV      | DE1200            | 5-min precipitation rate (mm/h)  | `ErrUnknownUnit` expected |
+| RW      | National          | Hourly accumulated precipitation |                           |
+| RX      | National          | Reflectivity                     |                           |
+| SF      | National          | Daily accumulated precipitation  |                           |
+| WN      | DE1200 Sphere     | Nowcast reflectivity             |                           |
+| WN      | DE1200 WGS84      | Nowcast reflectivity             |                           |
+| WX      | Extended national | Reflectivity                     |                           |
+| YW      | DE1200            | 5-min precipitation rate (mm/h)  |                           |
+
+RADVOR-RE (`RV`/`YW`, Format=5, DE1200 national grid) is fully supported including the WGS84 polar stereographic projection.
+
+## Coordinate projection
+
+DWD uses a polar stereographic projection with a spherical Earth model for most grids, and a WGS84 ellipsoid model for DE1200 Format≥5 (RADOLAN RV, RADVOR-RE). This package handles both automatically based on the composite header.
+
+```go
+// Grid coordinate from lat/lng
+x, y := comp.Project(north, east)
+
+// Pre-calibrated closure for tight loops (avoids repeated header lookups)
+project := comp.ProjectionFunc()
+x, y = project(north, east)
+```
+
+Coordinates are zero-indexed from the top-left corner of the grid. Non-integer values indicate sub-pixel position; use `int(x)` for direct array access or bilinear interpolation for smoother results.
+
+## Data sources
+
+- **RADOLAN RV** (5-min observed): `https://opendata.dwd.de/weather/radar/composit/rv/`
+- **RADVOR-RE** (5-min nowcast, 2h ahead): `https://opendata.dwd.de/weather/radar/radvor/rv/`
+- **DWD RADOLAN product documentation**: [DWD RADOLAN/RADVOR System Description](https://www.dwd.de/DE/leistungen/radolan/radolan.html)
+
+## License
+
+MIT. Derived from [jonnyschaefer/radolan](https://github.com/jonnyschaefer/radolan) (also MIT).

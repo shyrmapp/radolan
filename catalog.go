@@ -1,17 +1,20 @@
 package radolan
 
+// spec holds the fixed grid dimensions for local-scan products whose headers
+// do not include dimension fields.
 type spec struct {
-	px int // plain data dimensions
-	py int
+	px int // plain data width
+	py int // plain data height
 
-	dx int // data (layer) dimensions
-	dy int
+	dx int // layer data width
+	dy int // layer data height
 
-	rx float64 // resolution
-	ry float64
+	rx float64 // horizontal resolution (km/px)
+	ry float64 // vertical resolution (km/px)
 }
 
-// local picture products do not provide dimensions in header
+// dimensionCatalog provides dimensions for local-scan products that do not
+// encode them in the composite header.
 var dimensionCatalog = map[string]spec{
 	"OL": {200, 224, 200, 200, 2, 2},  // reflectivity (no clutter detection)
 	"OX": {200, 224, 200, 200, 1, 1},  // reflectivity (no clutter detection)
@@ -29,20 +32,24 @@ var dimensionCatalog = map[string]spec{
 	"PZ": {200, 2400, 200, 200, 2, 2}, // 3D reflectivity CAPPI
 }
 
+// Unit represents the physical unit of the radar data values in a composite.
 type Unit int
 
 const (
-	Unit_unknown = iota
-	Unit_mm      // mm/interval
-	Unit_dBZ     // dBZ
-	Unit_km      // km
-	Unit_mps     // m/s
+	Unit_unknown Unit = iota // unit not defined in catalog; values may be incorrect
+	Unit_mm                  // mm per measurement interval (accumulated precipitation)
+	Unit_dBZ                 // radar reflectivity factor (logarithmic)
+	Unit_km                  // kilometres (e.g. echo top height)
+	Unit_mps                 // metres per second (Doppler radial velocity)
 )
 
+// String returns a human-readable label for the unit.
 func (u Unit) String() string {
 	return []string{"unknown unit", "mm", "dBZ", "km", "m/s"}[u]
 }
 
+// unitCatalog maps product labels to their data unit.
+// Products absent from this map produce ErrUnknownUnit (e.g. RV, YW).
 var unitCatalog = map[string]Unit{
 	"CH": Unit_mm,
 	"CX": Unit_dBZ,

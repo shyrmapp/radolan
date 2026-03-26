@@ -1,30 +1,26 @@
-// Package radolan parses the DWD RADOLAN / RADVOR radar composite format. This data
-// is available at the Open Data Portal (https://www.dwd.de/DE/leistungen/opendata/opendata.html).
-// The obtained results can be processed and visualized with additional functions.
+// Package radolan parses DWD RADOLAN and RADVOR-RE weather radar composites
+// and provides coordinate projection, Z-R conversion, and spatial sampling.
 //
-// Tested input products and grids:
+// DWD publishes radar composites as open data:
+// https://opendata.dwd.de/weather/radar/
 //
-//	| Product | Grid              | Description             |
-//	| ------- | ----------------- | ----------------------- |
-//	| EX      | middle-european   | reflectivity            |
-//	| FX      | national          | nowcast reflectivity    |
-//	| FZ      | national          | nowcast reflectivity    |
-//	| PE      | local             | echo top                |
-//	| PF      | local             | reflectivity            |
-//	| PG      | national picture  | reflectivity            |
-//	| PR      | local             | doppler radial velocity |
-//	| PX      | local             | reflectivity            |
-//	| PZ      | local             | 3D reflectivity CAPPI   |
-//	| RW      | national          | hourly accumulated      |
-//	| RX      | national          | reflectivity            |
-//	| SF      | national          | daily accumulated       |
-//	| WX      | extended national | reflectivity            |
+// # Quick start
 //
-// Those can be considered working with sufficient accuracy.
+//	f, _ := os.Open("RV_latest.tar.bz2")
+//	composites, _ := radolan.NewComposites(f)
+//	comp := composites[len(composites)-1]
+//	project := comp.ProjectionFunc()
+//	x, y := project(52.52, 13.41) // Berlin
+//	mmh := radolan.PrecipitationRateAdaptive(comp.At(int(x), int(y)))
 //
-// In cases, where the publicly available format specification is unprecise or contradictory,
-// reverse engineering was used to obtain reasonable approaches.
-//	Used references:
+// # RADVOR-RE / RV note
+//
+// RV and RADVOR-RE composites use Format=5 on the DE1200 national grid with a
+// WGS84 polar stereographic projection. They also report an unknown data unit,
+// causing [NewComposite] and [NewComposites] to return [ErrUnknownUnit]. The
+// data is valid — treat ErrUnknownUnit as a warning, not a fatal error.
+//
+// # References
 //
 //	[1] https://www.dwd.de/DE/leistungen/radolan/radolan_info/radolan_radvor_op_komposit_format_pdf.pdf
 //	[2] https://www.dwd.de/DE/leistungen/gds/weiterfuehrende_informationen.zip
@@ -32,7 +28,6 @@
 //	[4] https://www.dwd.de/DE/leistungen/opendata/help/radar/radar_pg_coordinates_pdf.pdf
 //	[5] https://www.dwd.de/DE/leistungen/radarniederschlag/rn_info/download_niederschlagsbestimmung.pdf
 //	[6] https://www.dwd.de/DE/leistungen/radarprodukte/formatbeschreibung_wndaten.pdf
-//	[7] hex editor and much reverse engineering
 package radolan
 
 import (
