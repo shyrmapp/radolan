@@ -209,6 +209,47 @@ func (c *Composite) AtZ(x, y, z int) float32 {
 	return c.DataZ[z][y][x]
 }
 
+// NeighbourhoodSample samples a (2*radius+1)×(2*radius+1) pixel neighbourhood
+// centred on (cx, cy) and returns:
+//   - avgMMH: mean precipitation rate (mm/h) across all in-bounds pixels
+//   - maxMMH: peak precipitation rate (mm/h) in the neighbourhood
+//   - coverage: fraction of in-bounds pixels with rate ≥ 0.1 mm/h
+//
+// Out-of-bounds pixels are excluded from the count. NaN and non-positive dBZ
+// values (no echo) contribute to the count but not to total or max.
+// Uses PrecipitationRateAdaptive for Z-R conversion.
+func (c *Composite) NeighbourhoodSample(cx, cy, radius int) (avgMMH, maxMMH, coverage float64) {
+	const lightThresholdMMH = 0.1
+	var total, max float64
+	var count, above int
+
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			px, py := cx+dx, cy+dy
+			if px < 0 || py < 0 || px >= c.Dx || py >= c.Dy {
+				continue
+			}
+			dBZ := c.At(px, py)
+			count++
+			if IsNaN(dBZ) || dBZ <= 0 {
+				continue
+			}
+			mmH := PrecipitationRateAdaptive(dBZ)
+			total += mmH
+			if mmH > max {
+				max = mmH
+			}
+			if mmH >= lightThresholdMMH {
+				above++
+			}
+		}
+	}
+	if count == 0 {
+		return 0, 0, 0
+	}
+	return total / float64(count), max, float64(above) / float64(count)
+}
+
 // newError returns an error indicating the failed function and reason
 func newError(function, reason string) error {
 	return fmt.Errorf("radolan.%s: %s", function, reason)
