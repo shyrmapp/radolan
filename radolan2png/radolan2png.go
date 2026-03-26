@@ -5,8 +5,8 @@ package main
 
 import (
 	"fmt"
-	"gitlab.cs.fau.de/since/radolan"
-	"gitlab.cs.fau.de/since/radolan/radolan2png/vis"
+	"github.com/shyrmapp/radolan"
+	"github.com/shyrmapp/radolan/radolan2png/vis"
 	"image/color"
 	"image/png"
 	"log"

@@ -3,8 +3,8 @@ package radolan
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math"
+	"os"
 	"strconv"
 	"testing"
 )
@@ -180,11 +180,11 @@ func testGrid(t *testing.T, mode gridMode, dummys ...*Composite) {
 		lname := fmt.Sprintf("testdata/lambda_%s_%dx%d.txt", mode, comp.Dy, comp.Dx)
 		pname := fmt.Sprintf("testdata/phi_%s_%dx%d.txt", mode, comp.Dy, comp.Dx)
 
-		lbuf, err := ioutil.ReadFile(lname)
+		lbuf, err := os.ReadFile(lname)
 		if err != nil {
 			t.Fatal(err)
 		}
-		pbuf, err := ioutil.ReadFile(pname)
+		pbuf, err := os.ReadFile(pname)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -46,16 +46,16 @@ func (c *Composite) decodeRunlength(dst []float32, line []byte) error {
 	dstpos := 0
 	offset := true
 	for i, value := range line {
-		switch true {
-		case i == 0: // skip useless line number
-		case offset: // calculate offset
+		if i == 0 { // skip useless line number
+			continue
+		}
+		if offset { // calculate offset position
 			if value < 16 {
 				return newError("decodeRunlength", "invalid offset value")
 			}
-
 			dstpos += int(value) - 16 // update offset position
-			offset = value == 255     // see if next byte will be also offset
-		default:
+			offset = value == 255     // chained offset: next byte is also offset
+		} else {
 			// value [XXXX|YYYY] decodes to YYYY repeated XXXX times.
 			runlength := int(value >> 4)
 			value &= 0x0F
@@ -64,7 +64,6 @@ func (c *Composite) decodeRunlength(dst []float32, line []byte) error {
 				if dstpos >= len(dst) {
 					return newError("decodeRunlength", "destination size exceeded")
 				}
-
 				dst[dstpos] = c.rvp6Runlength(value)
 				dstpos++
 			}

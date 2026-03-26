@@ -7,32 +7,19 @@ import (
 
 // parseLittleEndian parses the little endian encoded composite as described in [1] and [3].
 // Result are written into the previously created PlainData field of the composite.
+// A single line buffer is reused across all rows to avoid per-row heap allocation.
 func (c *Composite) parseLittleEndian(reader *bufio.Reader) error {
+	line := make([]byte, c.Dx*2) // one allocation for the whole composite
 	last := len(c.PlainData) - 1
 	for i := range c.PlainData {
-		line, err := c.readLineLittleEndian(reader)
-		if err != nil {
-			return err
+		if _, err := io.ReadFull(reader, line); err != nil {
+			return newError("parseLittleEndian", err.Error())
 		}
-
-		err = c.decodeLittleEndian(c.PlainData[last-i], line) // write vertically flipped
-		if err != nil {
+		if err := c.decodeLittleEndian(c.PlainData[last-i], line); err != nil { // vertically flipped
 			return err
 		}
 	}
-
 	return nil
-}
-
-// readLineLittleEndian reads a line until horizontal limit from the given reader
-// This method is used to get a line of little endian encoded data.
-func (c *Composite) readLineLittleEndian(rd *bufio.Reader) (line []byte, err error) {
-	line = make([]byte, c.Dx*2)
-	_, err = io.ReadFull(rd, line)
-	if err != nil {
-		err = newError("readLineLittleEndian", err.Error())
-	}
-	return
 }
 
 // decodeLittleEndian decodes the source line and writes to the given destination.

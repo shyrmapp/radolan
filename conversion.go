@@ -21,9 +21,17 @@ type ZR struct {
 
 // Common Z-R relationships
 var (
-	Aniol80          = NewZR(256, 1.42) // operational use in germany, described in [5]
-	Doelling98       = NewZR(316, 1.50) // operational use in switzerland
-	JossWaldvogel70  = NewZR(300, 1.50)
+	Aniol80 = NewZR(256, 1.42) // DWD operational Germany, described in [5]
+
+	// Doelling98 is the MeteoSwiss operational Z-R relationship.
+	Doelling98 = NewZR(316, 1.50)
+
+	// JossWaldvogel70 is a European stratiform/drizzle Z-R relationship (a=300, b=1.50)
+	// commonly cited in German meteorological literature. Note: the original Joss &
+	// Waldvogel (1970) paper proposed Z=25R^1.71 for drizzle specifically; this variant
+	// (a=300, b=1.50) reflects a widely-used regional adaptation.
+	JossWaldvogel70 = NewZR(300, 1.50)
+
 	MarshallPalmer55 = NewZR(200, 1.60) // operational use in austria
 )
 
@@ -45,13 +53,20 @@ func PrecipitationRate(relation ZR, dBZ float32) (rate float64) {
 
 // PrecipitationRateAdaptive returns the estimated precipitation rate (mm/h) using
 // a regime-adaptive Z-R relationship selected by echo intensity:
-//   - dBZ ≥ 35: convective → Marshall-Palmer55 (a=200, b=1.60)
-//   - dBZ < 20: drizzle/stratiform → JossWaldvogel70 (a=300, b=1.50)
-//   - otherwise: operational DWD Aniol80 (a=256, b=1.42)
+//   - dBZ ≤ 0:  sub-noise floor → 0 mm/h
+//   - dBZ < 20: drizzle/light stratiform → JossWaldvogel70 (a=300, b=1.50)
+//   - dBZ < 35: operational stratiform → Aniol80 (a=256, b=1.42)
+//   - dBZ ≥ 35: convective/hail-contaminated → MarshallPalmer55 (a=200, b=1.60)
 //
-// This reduces Aniol80's known underestimation bias in summer convective cells
-// while preserving accuracy in the dominant stratiform regime.
+// At convective thresholds (dBZ ≥ 35), Aniol80 is known to overestimate QPE
+// relative to rain-gauge networks in German summer convection due to hail
+// contamination and partial beam blockage (Krämer et al. 2008, HESS). The switch
+// to MarshallPalmer55 applies a more conservative estimate in this regime.
+// JossWaldvogel70 reduces the overestimate Aniol80 produces for drizzle DSDs.
 func PrecipitationRateAdaptive(dBZ float32) float64 {
+	if dBZ <= 0 {
+		return 0
+	}
 	switch {
 	case dBZ >= 35:
 		return PrecipitationRate(MarshallPalmer55, dBZ)

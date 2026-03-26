@@ -1,7 +1,7 @@
 package vis
 
 import (
-	"gitlab.cs.fau.de/since/radolan"
+	"github.com/shyrmapp/radolan"
 	"image"
 	"image/color"
 	"math"
@@ -101,7 +101,7 @@ func Graymap(min, max float64, compression func(float64) float64) ColorFunc {
 // be used for doppler radar radial velocity products.
 func Radialmap(min, max float64, compression func(float64) float64) ColorFunc {
 	return func(val float64) color.RGBA {
-		if val != val {
+		if math.IsNaN(val) {
 			return color.RGBA{0x00, 0x00, 0x00, 0xFF} // black
 		}
 

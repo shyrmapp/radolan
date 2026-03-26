@@ -41,7 +41,7 @@ import (
 	"compress/bzip2"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"time"
 )
 
@@ -180,7 +180,7 @@ func NewComposites(rd io.Reader) ([]*Composite, error) {
 	}
 
 	// sort composites in chronological order
-	sort.Slice(cs, func(i, j int) bool { return cs[i].ForecastTime.Before(cs[j].ForecastTime) })
+	slices.SortFunc(cs, func(a, b *Composite) int { return a.ForecastTime.Compare(b.ForecastTime) })
 	return cs, nil
 }
 
@@ -223,24 +223,47 @@ func (c *Composite) NeighbourhoodSample(cx, cy, radius int) (avgMMH, maxMMH, cov
 	var total, max float64
 	var count, above int
 
-	for dy := -radius; dy <= radius; dy++ {
-		for dx := -radius; dx <= radius; dx++ {
-			px, py := cx+dx, cy+dy
-			if px < 0 || py < 0 || px >= c.Dx || py >= c.Dy {
-				continue
+	// Fast path for interior pixels: skip per-pixel bounds checks entirely.
+	interior := cx-radius >= 0 && cy-radius >= 0 && cx+radius < c.Dx && cy+radius < c.Dy
+	if interior {
+		for dy := -radius; dy <= radius; dy++ {
+			row := c.Data[cy+dy]
+			for dx := -radius; dx <= radius; dx++ {
+				dBZ := row[cx+dx]
+				count++
+				if IsNaN(dBZ) || dBZ <= 0 {
+					continue
+				}
+				mmH := PrecipitationRateAdaptive(dBZ)
+				total += mmH
+				if mmH > max {
+					max = mmH
+				}
+				if mmH >= lightThresholdMMH {
+					above++
+				}
 			}
-			dBZ := c.At(px, py)
-			count++
-			if IsNaN(dBZ) || dBZ <= 0 {
-				continue
-			}
-			mmH := PrecipitationRateAdaptive(dBZ)
-			total += mmH
-			if mmH > max {
-				max = mmH
-			}
-			if mmH >= lightThresholdMMH {
-				above++
+		}
+	} else {
+		for dy := -radius; dy <= radius; dy++ {
+			for dx := -radius; dx <= radius; dx++ {
+				px, py := cx+dx, cy+dy
+				if px < 0 || py < 0 || px >= c.Dx || py >= c.Dy {
+					continue
+				}
+				dBZ := c.At(px, py)
+				count++
+				if IsNaN(dBZ) || dBZ <= 0 {
+					continue
+				}
+				mmH := PrecipitationRateAdaptive(dBZ)
+				total += mmH
+				if mmH > max {
+					max = mmH
+				}
+				if mmH >= lightThresholdMMH {
+					above++
+				}
 			}
 		}
 	}

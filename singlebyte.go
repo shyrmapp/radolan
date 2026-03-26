@@ -7,32 +7,19 @@ import (
 
 // parseSingleByte parses the single byte encoded composite as described in [1] and writes
 // into the previously created PlainData field of the composite.
+// A single line buffer is reused across all rows to avoid per-row heap allocation.
 func (c *Composite) parseSingleByte(reader *bufio.Reader) error {
+	line := make([]byte, c.Dx) // one allocation for the whole composite
 	last := len(c.PlainData) - 1
 	for i := range c.PlainData {
-		line, err := c.readLineSingleByte(reader)
-		if err != nil {
-			return err
+		if _, err := io.ReadFull(reader, line); err != nil {
+			return newError("parseSingleByte", err.Error())
 		}
-
-		err = c.decodeSingleByte(c.PlainData[last-i], line) // write vertically flipped
-		if err != nil {
+		if err := c.decodeSingleByte(c.PlainData[last-i], line); err != nil { // vertically flipped
 			return err
 		}
 	}
-
 	return nil
-}
-
-// readLineSingleByte reads a line until horizontal limit from the given reader
-// This method is used to get a line of single byte encoded data.
-func (c *Composite) readLineSingleByte(rd *bufio.Reader) (line []byte, err error) {
-	line = make([]byte, c.Dx)
-	_, err = io.ReadFull(rd, line)
-	if err != nil {
-		err = newError("readLineSingleByte", err.Error())
-	}
-	return
 }
 
 // decodeSingleByte decodes the source line and writes to the given destination.

@@ -51,10 +51,13 @@ func (c *Composite) parseData(reader *bufio.Reader) error {
 		return newError("parseData", "parsed header data required")
 	}
 
-	// create Data fields
+	// Allocate PlainData as a single contiguous backing array sliced into rows.
+	// This reduces heap allocations from c.Py+1 to 2 and improves cache locality
+	// during row-by-row decoding (parseLittleEndian, parseSingleByte).
+	flat := make([]float32, c.Px*c.Py)
 	c.PlainData = make([][]float32, c.Py)
 	for i := range c.PlainData {
-		c.PlainData[i] = make([]float32, c.Px)
+		c.PlainData[i] = flat[i*c.Px : (i+1)*c.Px]
 	}
 
 	return parse[c.identifyEncoding()](c, reader)
@@ -63,6 +66,9 @@ func (c *Composite) parseData(reader *bufio.Reader) error {
 // arrangeData slices plain data into its data layers or strips preceeding
 // vertical projection
 func (c *Composite) arrangeData() {
+	if c.Dy <= 0 {
+		c.Dy = c.Py // fallback: treat as single-layer composite
+	}
 	if c.Py%c.Dy == 0 { // multiple layers are linked downwards
 		c.DataZ = make([][][]float32, c.Py/c.Dy)
 		for i := range c.DataZ {
