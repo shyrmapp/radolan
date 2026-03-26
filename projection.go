@@ -143,3 +143,45 @@ func (c *Composite) Project(north, east float64) (x, y float64) {
 	}
 	return c.projectSphere(north, east)
 }
+
+// ProjectionFunc returns a standalone projection function equivalent to c.Project
+// that holds no reference to the composite. Safe to call after the composite is
+// discarded. Returns nil if no projection is available.
+func (c *Composite) ProjectionFunc() func(north, east float64) (x, y float64) {
+	if !c.HasProjection {
+		return nil
+	}
+	offx, offy, rx, ry := c.offx, c.offy, c.Rx, c.Ry
+	if c.proj_wgs84 != nil {
+		p := c.proj_wgs84
+		return func(north, east float64) (x, y float64) {
+			lat := north * degToRad
+			lon := east * degToRad
+			sinLat := math.Sin(lat)
+			s := p.k_0 * math.Tan(0.5*(math.Pi/2-lat)) / math.Pow(((1-p.ecc*sinLat)/(1+p.ecc*sinLat)), 0.5*p.ecc)
+			x = p.x_0 + (s * math.Sin(lon-p.lon_0))
+			y = p.y_0 - (s * math.Cos(lon-p.lon_0))
+			x = (x / p.scale)
+			y = (y / -p.scale)
+			x -= offx
+			y -= offy
+			x /= rx
+			y /= ry
+			return
+		}
+	}
+	return func(north, east float64) (x, y float64) {
+		lamda0 := junctionEast * (math.Pi / 180.0)
+		phi0 := junctionNorth * (math.Pi / 180.0)
+		lamda := east * (math.Pi / 180.0)
+		phi := north * (math.Pi / 180.0)
+		m := (1.0 + math.Sin(phi0)) / (1.0 + math.Sin(phi))
+		x = earthRadius * m * math.Cos(phi) * math.Sin(lamda-lamda0)
+		y = earthRadius * m * math.Cos(phi) * math.Cos(lamda-lamda0)
+		x -= offx
+		y -= offy
+		x /= rx
+		y /= ry
+		return
+	}
+}
