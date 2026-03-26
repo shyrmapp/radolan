@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+
 type headerTestcase struct {
 	// head of file
 	test string
@@ -26,7 +27,6 @@ type headerTestcase struct {
 
 func TestParseHeaderPG(t *testing.T) {
 	ht := &headerTestcase{}
-	var err1, err2 error
 
 	// head of file
 	ht.test = "PG262115100000616BY22205LV 6  1.0 19.0 28.0 37.0 46.0 55.0CS0MX 0MS " +
@@ -36,24 +36,20 @@ func TestParseHeaderPG(t *testing.T) {
 	// expected
 	ht.expBinary = "binarycontent"
 	ht.expProduct = "PG"
-	ht.expCaptureTime, err1 = time.Parse(time.RFC1123, "Sun, 26 Jun 2016 23:15:00 CEST")
-	ht.expForecastTime, err2 = time.Parse(time.RFC1123, "Sun, 26 Jun 2016 23:15:00 CEST")
+	// Header stores "2115" → 21:15 UTC. "23:15 CEST" (UTC+2) is the same instant.
+	ht.expCaptureTime = time.Date(2016, 6, 26, 21, 15, 0, 0, time.UTC)
+	ht.expForecastTime = time.Date(2016, 6, 26, 21, 15, 0, 0, time.UTC)
 	ht.expDx = 460
 	ht.expDy = 460
 	ht.expDataLength = 22205 - 159 // BY - header_etx_length
 	ht.expPrecision = 0
 	ht.expLevel = []float32{1.0, 19.0, 28.0, 37.0, 46.0, 55.0}
 
-	if err1 != nil || err2 != nil {
-		t.Errorf("%s.parseHeader(): wrong testcase time.Parse", ht.expProduct)
-	}
-
 	testParseHeader(t, ht)
 }
 
 func TestParseHeaderFZ(t *testing.T) {
 	ht := &headerTestcase{}
-	var err1, err2 error
 
 	// head of file
 	ht.test = "FZ282105100000716BY 405160VS 3SW   2.13.1PR E-01INT   5GP 450x 450VV 100MF " +
@@ -64,18 +60,16 @@ func TestParseHeaderFZ(t *testing.T) {
 	ht.expBinary = "binarycontent"
 
 	ht.expProduct = "FZ"
-	ht.expCaptureTime, err1 = time.Parse(time.RFC1123, "Thu, 28 Jul 2016 23:05:00 CEST")
-	ht.expForecastTime, err2 = time.Parse(time.RFC1123, "Fri, 29 Jul 2016 00:45:00 CEST")
+	// Header stores "2305"/"0045" → 21:05 and 22:45 UTC. CEST (UTC+2) equivalents
+	// are 23:05 and 00:45+1day, which are the same instants.
+	ht.expCaptureTime = time.Date(2016, 7, 28, 21, 5, 0, 0, time.UTC)
+	ht.expForecastTime = time.Date(2016, 7, 28, 22, 45, 0, 0, time.UTC)
 	ht.expInterval = 5 * time.Minute
 	ht.expDx = 450
 	ht.expDy = 450
 	ht.expDataLength = 405160 - 154 // BY - header_etx_length
 	ht.expPrecision = -1
 	ht.expLevel = []float32(nil)
-
-	if err1 != nil || err2 != nil {
-		t.Errorf("%s.parseHeader(): wrong testcase time.Parse", ht.expProduct)
-	}
 
 	testParseHeader(t, ht)
 }
