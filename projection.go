@@ -170,14 +170,15 @@ func (c *Composite) ProjectionFunc() func(north, east float64) (x, y float64) {
 			return
 		}
 	}
+	// Pre-compute junction point radians outside the closure.
+	lambda0 := junctionEast * degToRad
+	phi0 := junctionNorth * degToRad
 	return func(north, east float64) (x, y float64) {
-		lamda0 := junctionEast * (math.Pi / 180.0)
-		phi0 := junctionNorth * (math.Pi / 180.0)
-		lamda := east * (math.Pi / 180.0)
-		phi := north * (math.Pi / 180.0)
+		lambda := east * degToRad
+		phi := north * degToRad
 		m := (1.0 + math.Sin(phi0)) / (1.0 + math.Sin(phi))
-		x = earthRadius * m * math.Cos(phi) * math.Sin(lamda-lamda0)
-		y = earthRadius * m * math.Cos(phi) * math.Cos(lamda-lamda0)
+		x = earthRadius * m * math.Cos(phi) * math.Sin(lambda-lambda0)
+		y = earthRadius * m * math.Cos(phi) * math.Cos(lambda-lambda0)
 		x -= offx
 		y -= offy
 		x /= rx

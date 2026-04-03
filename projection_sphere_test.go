@@ -146,7 +146,7 @@ type gridMode string
 
 const (
 	gridBottom gridMode = "bottom"
-	gridCenter          = "center"
+	gridCenter gridMode = "center"
 )
 
 func TestGrid(t *testing.T) {

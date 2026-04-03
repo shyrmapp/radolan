@@ -34,6 +34,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/bzip2"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -41,11 +42,11 @@ import (
 )
 
 // Radolan radar data is provided as single local sweeps or so called composite
-// formats. Each composite is a combined image consisting of mulitiple radar
+// formats. Each composite is a combined image consisting of multiple radar
 // sweeps spread over the composite area.
-// The 2D composite c has a an internal resolution of c.Dx (horizontal) * c.Dy
-// (vertical) records covering a real surface of c.Dx * c.Rx * c.Dy * c.Dy
-// square kilometers.
+// The 2D composite c has an internal resolution of c.Dx (horizontal) * c.Dy
+// (vertical) records covering a real surface of c.Dx * c.Rx * c.Dy * c.Ry
+// square kilometres.
 // The pixel value at the position (x, y) is represented by
 // c.Data[ y ][ x ] and is stored as raw float value (NaN if the no-data flag
 // is set). Some 3D radar products feature multiple layers in which the voxel
@@ -79,7 +80,7 @@ import (
 type Composite struct {
 	Product string // composite product label
 
-	CaptureTime  time.Time     // time of source data capture used for forcasting
+	CaptureTime  time.Time     // time of source data capture used for forecasting
 	ForecastTime time.Time     // data represents conditions predicted for this time
 	Interval     time.Duration // time duration until next forecast
 
@@ -105,8 +106,9 @@ type Composite struct {
 
 	dataLength int // length of binary section in bytes
 
-	precision int       // multiplicator 10^precision for each raw value
-	level     []float32 // maps data value to corresponding index value in runlength based formats
+	precision     int     // exponent: each raw value is scaled by 10^precision
+	precisionMult float32 // precomputed float32(math.Pow10(precision))
+	level         []float32 // maps data value to corresponding index value in runlength based formats
 
 	offx float64 // horizontal projection offset
 	offy float64 // vertical projection offset
@@ -115,10 +117,9 @@ type Composite struct {
 }
 
 // ErrUnknownUnit indicates that the unit of the radar data is not defined in
-// the catalog. The data values can be incorrect due to unit dependent
-// conversions during parsing. Be careful when further processing the
-// composite.
-var ErrUnknownUnit = newError("NewComposite", "data unit not defined in catalog. data values can be incorrect")
+// the catalog. The data values can be incorrect due to unit-dependent
+// conversions during parsing. Callers should check for this with errors.Is.
+var ErrUnknownUnit = errors.New("radolan: data unit not defined in catalog; values may be incorrect")
 
 // NewComposite reads binary data from rd and parses the composite.  An error
 // is returned on failure. When ErrUnknownUnit is returned, the data values can
@@ -168,7 +169,7 @@ func NewComposites(rd io.Reader) ([]*Composite, error) {
 		}
 
 		c, err := NewComposite(tarReader)
-		if err != nil && err != ErrUnknownUnit {
+		if err != nil && !errors.Is(err, ErrUnknownUnit) {
 			return nil, err
 		}
 		cs = append(cs, c)

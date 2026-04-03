@@ -1,18 +1,17 @@
 package radolan
 
-import (
-	"math"
-)
+import "math"
 
 var NaN = float32(math.NaN())
 
-func IsNaN(f float32) (is bool) {
+// IsNaN reports whether f is a NaN value.
+func IsNaN(f float32) bool {
 	return f != f
 }
 
-// Z-R relationship
+// ZR holds precomputed coefficients for a Z-R relationship Z = a × R^b,
+// enabling O(1) conversion between reflectivity (dBZ) and rainfall rate (mm/h).
 type ZR struct {
-	// intermediate caching
 	c1 float64 // 10*b
 	c2 float64 // a^(-1/b)
 	c3 float64 // 10^(1/(10*b))
@@ -35,7 +34,7 @@ var (
 	MarshallPalmer55 = NewZR(200, 1.60) // operational use in austria
 )
 
-// New Z-R returns a Z-R relationship mathematically expressed as Z = a * R^b
+// NewZR returns a Z-R relationship mathematically expressed as Z = a × R^b.
 func NewZR(A, B float64) ZR {
 	c1 := 10.0 * B
 	c2 := math.Pow(A, -1.0/B)
@@ -47,7 +46,7 @@ func NewZR(A, B float64) ZR {
 
 // PrecipitationRate returns the estimated precipitation rate in mm/h for the given
 // reflectivity factor and Z-R relationship.
-func PrecipitationRate(relation ZR, dBZ float32) (rate float64) {
+func PrecipitationRate(relation ZR, dBZ float32) float64 {
 	return relation.c2 * math.Pow(relation.c3, float64(dBZ))
 }
 
@@ -79,13 +78,13 @@ func PrecipitationRateAdaptive(dBZ float32) float64 {
 
 // Reflectivity returns the estimated reflectivity factor for the given precipitation
 // rate (mm/h) and Z-R relationship.
-func Reflectivity(relation ZR, rate float64) (dBZ float32) {
+func Reflectivity(relation ZR, rate float64) float32 {
 	return float32(relation.c4 + relation.c1*math.Log10(rate))
 }
 
 // toDBZ converts the given radar video processor values (rvp-6) to radar reflectivity
 // factors in decibel relative to Z (dBZ).
-func toDBZ(rvp6 float32) (dBZ float32) {
+func toDBZ(rvp6 float32) float32 {
 	return rvp6/2.0 - 32.5
 }
 
@@ -96,7 +95,7 @@ func toRVP6(dBZ float32) float32 {
 }
 
 // rvp6Raw converts the raw value to radar video processor values (rvp-6) by applying the
-// products precision field.
+// product's precomputed precision multiplier (10^precision).
 func (c *Composite) rvp6Raw(value int) float32 {
-	return float32(value) * float32(math.Pow10(c.precision))
+	return float32(value) * c.precisionMult
 }

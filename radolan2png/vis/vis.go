@@ -56,7 +56,8 @@ func Log(x float64) float64 {
 }
 
 // Image creates an image by evaluating the color function fn for each data
-// value in the given z-layer.
+// value in the given z-layer. Pixels are written directly into the RGBA buffer
+// to avoid the per-pixel overhead of image.Set and the color model interface.
 func Image(fn ColorFunc, c *radolan.Composite, layer int) *image.RGBA {
 	rec := image.Rect(0, 0, c.Dx, c.Dy)
 	img := image.NewRGBA(rec)
@@ -65,9 +66,18 @@ func Image(fn ColorFunc, c *radolan.Composite, layer int) *image.RGBA {
 		return img
 	}
 
-	for y := 0; y < c.Dy; y++ {
-		for x := 0; x < c.Dx; x++ {
-			img.Set(x, y, fn(float64(c.DataZ[layer][y][x])))
+	stride := img.Stride
+	pix := img.Pix
+	for y := range c.Dy {
+		row := c.DataZ[layer][y]
+		off := y * stride
+		for x := range c.Dx {
+			col := fn(float64(row[x]))
+			i := off + x*4
+			pix[i+0] = col.R
+			pix[i+1] = col.G
+			pix[i+2] = col.B
+			pix[i+3] = col.A
 		}
 	}
 

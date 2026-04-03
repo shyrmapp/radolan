@@ -4,44 +4,24 @@ import (
 	"bufio"
 )
 
-// encoding types of the composite
-type encoding int
-
-const (
-	runlength encoding = iota
-	littleEndian
-	singleByte
-	unknown
-)
-
-// parsing methods
-var parse = [4]func(c *Composite, rd *bufio.Reader) error{}
-
-// init maps the parsing methods to the encoding type
-func init() {
-	parse[runlength] = (*Composite).parseRunlength
-	parse[littleEndian] = (*Composite).parseLittleEndian
-	parse[singleByte] = (*Composite).parseSingleByte
-	parse[unknown] = (*Composite).parseUnknown
-}
-
-// identifyEncoing identifies the encoding type of the data section by
-// only comparing header characteristics.
-// This method requires header data to be already written.
-func (c *Composite) identifyEncoding() encoding {
+// identifyAndParse detects the encoding from header fields and parses the
+// binary data section. Encoding detection rules:
+//   - level table present → run-length encoding
+//   - dataLength == Px*Py*2 → 16-bit little-endian
+//   - dataLength == Px*Py → 8-bit single-byte
+func (c *Composite) identifyAndParse(rd *bufio.Reader) error {
 	values := c.Px * c.Py
 
-	if c.level != nil {
-		return runlength
+	switch {
+	case c.level != nil:
+		return c.parseRunlength(rd)
+	case c.dataLength == values*2:
+		return c.parseLittleEndian(rd)
+	case c.dataLength == values:
+		return c.parseSingleByte(rd)
+	default:
+		return newError("identifyAndParse", "unknown encoding: data length does not match any known format")
 	}
-	if c.dataLength == values*2 {
-		return littleEndian
-	}
-	if c.dataLength == values {
-		return singleByte
-	}
-
-	return unknown
 }
 
 // parseData parses the composite data and writes the related fields.
@@ -49,6 +29,12 @@ func (c *Composite) identifyEncoding() encoding {
 func (c *Composite) parseData(reader *bufio.Reader) error {
 	if c.Px == 0 || c.Py == 0 {
 		return newError("parseData", "parsed header data required")
+	}
+
+	// Ensure precision multiplier is set (default: 10^0 = 1.0 when constructed
+	// without parseHeader, e.g. in tests).
+	if c.precisionMult == 0 {
+		c.precisionMult = 1.0
 	}
 
 	// Allocate PlainData as a single contiguous backing array sliced into rows.
@@ -60,11 +46,11 @@ func (c *Composite) parseData(reader *bufio.Reader) error {
 		c.PlainData[i] = flat[i*c.Px : (i+1)*c.Px]
 	}
 
-	return parse[c.identifyEncoding()](c, reader)
+	return c.identifyAndParse(reader)
 }
 
-// arrangeData slices plain data into its data layers or strips preceeding
-// vertical projection
+// arrangeData slices plain data into its data layers or strips the preceding
+// vertical projection.
 func (c *Composite) arrangeData() {
 	if c.Dy <= 0 {
 		c.Dy = c.Py // fallback: treat as single-layer composite
@@ -82,7 +68,3 @@ func (c *Composite) arrangeData() {
 	c.Data = c.DataZ[0] // alias
 }
 
-// parseUnknown performs no action and always returns an error.
-func (c *Composite) parseUnknown(rd *bufio.Reader) error {
-	return newError("parseUnknown", "unknown encoding")
-}

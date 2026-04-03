@@ -13,16 +13,14 @@ const (
 )
 
 func (c *Composite) projectSphere(north, east float64) (x, y float64) {
-	rad := func(deg float64) float64 {
-		return deg * (math.Pi / 180.0)
-	}
-
-	lamda0, phi0 := rad(junctionEast), rad(junctionNorth)
-	lamda, phi := rad(east), rad(north)
+	lambda0 := junctionEast * degToRad
+	phi0 := junctionNorth * degToRad
+	lambda := east * degToRad
+	phi := north * degToRad
 
 	m := (1.0 + math.Sin(phi0)) / (1.0 + math.Sin(phi))
-	x = (earthRadius * m * math.Cos(phi) * math.Sin(lamda-lamda0))
-	y = (earthRadius * m * math.Cos(phi) * math.Cos(lamda-lamda0))
+	x = earthRadius * m * math.Cos(phi) * math.Sin(lambda-lambda0)
+	y = earthRadius * m * math.Cos(phi) * math.Cos(lambda-lambda0)
 
 	// offset correction
 	x -= c.offx

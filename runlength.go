@@ -60,7 +60,7 @@ func (c *Composite) decodeRunlength(dst []float32, line []byte) error {
 			runlength := int(value >> 4)
 			value &= 0x0F
 
-			for j := 0; j < runlength; j++ {
+			for range runlength {
 				if dstpos >= len(dst) {
 					return newError("decodeRunlength", "destination size exceeded")
 				}

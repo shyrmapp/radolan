@@ -3,6 +3,7 @@ package radolan
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"time"
 	"unicode"
 )
@@ -120,11 +121,14 @@ func (c *Composite) parseHeader(reader *bufio.Reader) error {
 	}
 
 	// Parse Precision - Example: "PR E-01" or "PR E+00"
-	if prec, ok := section["E"]; ok { // not that nice
+	// The splitHeader function splits "PR E-01" into keys "PR" (value " ") and
+	// "E" (value "-01"), so we look up "E" directly.
+	if prec, ok := section["E"]; ok {
 		if _, err := fmt.Sscanf(prec, "%d", &c.precision); err != nil {
 			return newError("parseHeader", "could not parse precision: "+err.Error())
 		}
 	}
+	c.precisionMult = float32(math.Pow10(c.precision))
 
 	// Parse Level - Example "LV 6  1.0 19.0 28.0 37.0 46.0 55.0"
 	// or "LV12-31.5-24.5-17.5-10.5 -5.5 -1.0  1.0  5.5 10.5 17.5 24.5 31.5"
