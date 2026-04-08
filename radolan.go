@@ -217,16 +217,17 @@ func (c *Composite) AtZ(x, y, z int) float32 {
 func (c *Composite) NeighbourhoodSample(cx, cy, radius int) (avgMMH, maxMMH, coverage float64) {
 	const lightThresholdMMH = 0.1
 	var total, max float64
-	var count, above int
+	var above int
 
-	// Fast path for interior pixels: skip per-pixel bounds checks entirely.
+	w := 2*radius + 1
+	totalCount := w * w
+
 	interior := cx-radius >= 0 && cy-radius >= 0 && cx+radius < c.Dx && cy+radius < c.Dy
 	if interior {
 		for dy := -radius; dy <= radius; dy++ {
 			row := c.Data[cy+dy]
 			for dx := -radius; dx <= radius; dx++ {
 				dBZ := row[cx+dx]
-				count++
 				if IsNaN(dBZ) || dBZ <= 0 {
 					continue
 				}
@@ -241,13 +242,14 @@ func (c *Composite) NeighbourhoodSample(cx, cy, radius int) (avgMMH, maxMMH, cov
 			}
 		}
 	} else {
+		var count int
 		for dy := -radius; dy <= radius; dy++ {
 			for dx := -radius; dx <= radius; dx++ {
 				px, py := cx+dx, cy+dy
 				if px < 0 || py < 0 || px >= c.Dx || py >= c.Dy {
 					continue
 				}
-				dBZ := c.At(px, py)
+				dBZ := c.Data[py][px]
 				count++
 				if IsNaN(dBZ) || dBZ <= 0 {
 					continue
@@ -262,11 +264,12 @@ func (c *Composite) NeighbourhoodSample(cx, cy, radius int) (avgMMH, maxMMH, cov
 				}
 			}
 		}
+		totalCount = count
+		if count == 0 {
+			return 0, 0, 0
+		}
 	}
-	if count == 0 {
-		return 0, 0, 0
-	}
-	return total / float64(count), max, float64(above) / float64(count)
+	return total / float64(totalCount), max, float64(above) / float64(totalCount)
 }
 
 // newError returns an error indicating the failed function and reason

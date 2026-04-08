@@ -6,6 +6,10 @@ import (
 
 // parseRunlength parses the runlength encoded composite and writes into the
 // previously created PlainData field of the composite.
+//
+// BUG: Unlike parseLittleEndian and parseSingleByte, this function does not
+// vertically flip the data. Verify against real DWD data whether runlength
+// products need flipping.
 func (c *Composite) parseRunlength(reader *bufio.Reader) error {
 	for i := range c.PlainData {
 		line, err := c.readLineRunlength(reader)
@@ -23,7 +27,10 @@ func (c *Composite) parseRunlength(reader *bufio.Reader) error {
 }
 
 // readLineRunlength reads a line until newline (non inclusive) from the given reader.
-// This method is used to get a line of runlenth encoded data.
+// This method is used to get a line of runlength encoded data.
+//
+// BUG: ReadBytes('\x0A') splits prematurely when a line-number byte equals
+// 0x0A (row >= 10), corrupting products with >= 10 rows (e.g. PG at 460×460).
 func (c *Composite) readLineRunlength(rd *bufio.Reader) (line []byte, err error) {
 	line, err = rd.ReadBytes('\x0A')
 	if err != nil {

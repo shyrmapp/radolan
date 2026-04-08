@@ -28,8 +28,21 @@ func (c *Composite) decodeSingleByte(dst []float32, line []byte) error {
 		return newError("decodeSingleByte", "wrong destination or source size")
 	}
 
+	dBZ := c.DataUnit == Unit_dBZ
+
 	for i, v := range line {
-		dst[i] = c.rvp6SingleByte(v)
+		if v == 250 {
+			dst[i] = NaN
+			continue
+		}
+
+		conv := c.rvp6Raw(int(v))
+
+		if dBZ {
+			dst[i] = toDBZ(conv)
+		} else {
+			dst[i] = conv
+		}
 	}
 
 	return nil

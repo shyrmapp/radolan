@@ -67,4 +67,3 @@ func (c *Composite) arrangeData() {
 	c.Dz = len(c.DataZ)
 	c.Data = c.DataZ[0] // alias
 }
-

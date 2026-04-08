@@ -28,9 +28,29 @@ func (c *Composite) decodeLittleEndian(dst []float32, line []byte) error {
 		return newError("decodeLittleEndian", "wrong destination or source size")
 	}
 
+	dBZ := c.DataUnit == Unit_dBZ
+
 	for i := range dst {
-		tuple := [2]byte{line[2*i], line[2*i+1]}
-		dst[i] = c.rvp6LittleEndian(tuple)
+		lo := line[2*i]
+		hi := line[2*i+1]
+
+		if hi&(1<<5) != 0 {
+			dst[i] = NaN
+			continue
+		}
+
+		value := int(lo) | (int(hi&0x0F) << 8)
+		if hi&(1<<6) != 0 {
+			value *= -1
+		}
+
+		conv := c.rvp6Raw(value)
+
+		if dBZ {
+			dst[i] = toDBZ(conv)
+		} else {
+			dst[i] = conv
+		}
 	}
 
 	return nil

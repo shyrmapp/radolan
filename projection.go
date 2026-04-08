@@ -158,11 +158,9 @@ func (c *Composite) ProjectionFunc() func(north, east float64) (x, y float64) {
 			lat := north * degToRad
 			lon := east * degToRad
 			sinLat := math.Sin(lat)
-			s := p.k_0 * math.Tan(0.5*(math.Pi/2-lat)) / math.Pow(((1-p.ecc*sinLat)/(1+p.ecc*sinLat)), 0.5*p.ecc)
-			x = p.x_0 + (s * math.Sin(lon-p.lon_0))
-			y = p.y_0 - (s * math.Cos(lon-p.lon_0))
-			x = (x / p.scale)
-			y = (y / -p.scale)
+			s := p.k_0 * math.Tan(0.5*(math.Pi/2-lat)) / math.Pow(((1-p.ecc*sinLat)/(1+p.ecc*sinLat)), p.halfEcc)
+			x = (p.x_0 + s*math.Sin(lon-p.lon_0)) / p.scale
+			y = (p.y_0 - s*math.Cos(lon-p.lon_0)) / p.negScale
 			x -= offx
 			y -= offy
 			x /= rx
