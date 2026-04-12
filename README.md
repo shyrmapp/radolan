@@ -150,8 +150,6 @@ dbz := radolan.Reflectivity(radolan.Aniol80, mmh)
 | WN | DE1200 (1100×1200) | dBZ | Nowcast reflectivity |
 | WX | Extended national (900×1100) | dBZ | Reflectivity |
 
-RV composites return `ErrUnknownUnit` — this is expected. The data is valid.
-
 ## Coordinate projection
 
 DWD uses two projection models depending on the composite format:
@@ -165,7 +163,7 @@ The library detects the format from the header and applies the correct projectio
 
 This is a production fork of [jonnyschaefer/radolan](https://github.com/jonnyschaefer/radolan) (MIT). Key changes from upstream:
 
-- **`ErrUnknownUnit` tolerance**: RV composites trigger this on valid data. Upstream discards them; this fork returns them.
+- **`ErrUnknownUnit` tolerance**: Products absent from the unit catalog return data with this sentinel. Upstream discards them; this fork returns them.
 - **Format ≥ 5 projection**: Upstream returns NaN for DE1200/RADVOR-RE. This fork applies WGS84 polar stereographic.
 - **`PrecipitationRateAdaptive`**: Regime-adaptive Z-R conversion (JossWaldvogel70 / Aniol80 / MarshallPalmer55 by intensity).
 - **`NeighbourhoodSample`**: Spatial averaging with coverage statistics.
