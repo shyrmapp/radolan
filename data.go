@@ -55,6 +55,9 @@ func (c *Composite) arrangeData() {
 	if c.Dy <= 0 {
 		c.Dy = c.Py // fallback: treat as single-layer composite
 	}
+	if c.Dy > c.Py {
+		c.Dy = c.Py // guard: never exceed plain data height
+	}
 	if c.Py%c.Dy == 0 { // multiple layers are linked downwards
 		c.DataZ = make([][][]float32, c.Py/c.Dy)
 		for i := range c.DataZ {

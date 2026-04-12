@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
-	"strings"
 	"testing"
 )
 
@@ -173,7 +172,7 @@ func TestNewCompositeLittleEndianMM(t *testing.T) {
 	// RW composite with Unit_mm and precision E-01.
 	// value = (0x00 << 8) | 50 = 50; × 0.1 = 5.0 mm
 	data := make([]byte, 4)
-	binary.LittleEndian.PutUint16(data[0:2], 50) // pixel 0: 5.0 mm
+	binary.LittleEndian.PutUint16(data[0:2], 50)  // pixel 0: 5.0 mm
 	binary.LittleEndian.PutUint16(data[2:4], 100) // pixel 1: 10.0 mm
 	blob := buildComposite("RW", 2, 1, "E-01", data)
 
@@ -204,9 +203,9 @@ func TestErrUnknownUnitSentinel(t *testing.T) {
 }
 
 func TestNewCompositeUnknownUnit(t *testing.T) {
-	// RV is not in unitCatalog → returns ErrUnknownUnit but data is parsed.
+	// XX is not in unitCatalog → returns ErrUnknownUnit but data is parsed.
 	data := []byte{65, 100, 200, 65} // 2×2 single-byte
-	blob := buildComposite("RV", 2, 2, "E+00", data)
+	blob := buildComposite("XX", 2, 2, "E+00", data)
 
 	comp, err := NewComposite(bytes.NewReader(blob))
 	if !errors.Is(err, ErrUnknownUnit) {
@@ -373,19 +372,16 @@ func TestParseSingleByteReadError(t *testing.T) {
 
 // --- parseRunlength error path ---
 
-func TestParseRunlengthReadError(t *testing.T) {
-	// No newline in data → readLineRunlength hits EOF.
+func TestParseRunlengthRowCountMismatch(t *testing.T) {
+	// Data with fewer rows than Py → row count mismatch.
 	c := &Composite{Px: 4, Py: 1, Dx: 4, Dy: 1, level: []float32{1.0}, precisionMult: 1.0}
 	flat := make([]float32, 4)
 	c.PlainData = [][]float32{flat}
 
-	// Provide data without a newline terminator.
-	err := c.parseRunlength(bufioReader([]byte{0x00, 16, 0x41}))
+	// Empty data produces no rows.
+	err := c.parseRunlength(bufio.NewReader(bytes.NewReader([]byte{})))
 	if err == nil {
-		t.Fatal("expected error for missing newline in runlength data")
-	}
-	if !strings.Contains(err.Error(), "readLineRunlength") {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatal("expected error for empty runlength data")
 	}
 }
 
@@ -405,4 +401,3 @@ func TestNewCompositeDataTruncated(t *testing.T) {
 		t.Fatal("expected error for truncated composite")
 	}
 }
-

@@ -49,7 +49,7 @@ func (u Unit) String() string {
 }
 
 // unitCatalog maps product labels to their data unit.
-// Products absent from this map produce ErrUnknownUnit (e.g. RV, YW).
+// Products absent from this map produce ErrUnknownUnit.
 var unitCatalog = map[string]Unit{
 	"CH": Unit_mm,
 	"CX": Unit_dBZ,
@@ -98,6 +98,7 @@ var unitCatalog = map[string]Unit{
 	"RQ": Unit_mm,
 	"RR": Unit_mm,
 	"RU": Unit_mm,
+	"RV": Unit_mm,
 	"RW": Unit_mm,
 	"RX": Unit_dBZ,
 	"RY": Unit_mm,

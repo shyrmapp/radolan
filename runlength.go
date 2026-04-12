@@ -2,22 +2,28 @@ package radolan
 
 import (
 	"bufio"
+	"io"
 )
 
 // parseRunlength parses the runlength encoded composite and writes into the
-// previously created PlainData field of the composite.
-//
-// BUG: Unlike parseLittleEndian and parseSingleByte, this function does not
-// vertically flip the data. Verify against real DWD data whether runlength
-// products need flipping.
+// previously created PlainData field of the composite. Data is vertically
+// flipped to match the coordinate system used by parseLittleEndian and
+// parseSingleByte (row 0 = southernmost row in geographic terms).
 func (c *Composite) parseRunlength(reader *bufio.Reader) error {
-	for i := range c.PlainData {
-		line, err := c.readLineRunlength(reader)
-		if err != nil {
-			return err
-		}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return newError("parseRunlength", err.Error())
+	}
 
-		err = c.decodeRunlength(c.PlainData[i], line)
+	last := len(c.PlainData) - 1
+	rows := c.splitRunlengthRows(data)
+
+	if len(rows) != len(c.PlainData) {
+		return newError("parseRunlength", "row count mismatch")
+	}
+
+	for i, line := range rows {
+		err := c.decodeRunlength(c.PlainData[last-i], line) // vertically flipped
 		if err != nil {
 			return err
 		}
@@ -26,21 +32,47 @@ func (c *Composite) parseRunlength(reader *bufio.Reader) error {
 	return nil
 }
 
-// readLineRunlength reads a line until newline (non inclusive) from the given reader.
-// This method is used to get a line of runlength encoded data.
-//
-// BUG: ReadBytes('\x0A') splits prematurely when a line-number byte equals
-// 0x0A (row >= 10), corrupting products with >= 10 rows (e.g. PG at 460×460).
-func (c *Composite) readLineRunlength(rd *bufio.Reader) (line []byte, err error) {
-	line, err = rd.ReadBytes('\x0A')
-	if err != nil {
-		err = newError("readLineRunlength", err.Error())
+// splitRunlengthRows splits run-length encoded binary data into per-row byte slices.
+// Each row starts with a line-number byte (0–255) and is terminated by 0x0A.
+// When the line number equals 0x0A (rows >= 10), the delimiter byte is the same value,
+// so simple newline splitting would corrupt the data. This function handles that
+// by scanning the data and identifying real line terminators.
+func (c *Composite) splitRunlengthRows(data []byte) [][]byte {
+	var rows [][]byte
+	pos := 0
+
+	for pos < len(data) && len(rows) < c.Py {
+		start := pos
+
+		// Skip line number byte.
+		pos++
+
+		// Scan data bytes until we find the line terminator (0x0A).
+		// After the line number, any 0x0A byte is the terminator since
+		// valid offset bytes are >= 16 and 0x0A as a value byte would
+		// encode 0 repetitions (a no-op). A degenerate encoder emitting
+		// 0x0A as a zero-repetition value byte would be misread as a
+		// terminator, but no real DWD encoder produces such data.
+		found := false
+		for pos < len(data) {
+			if data[pos] == 0x0A {
+				rows = append(rows, data[start:pos])
+				pos++ // skip the newline delimiter
+				found = true
+				break
+			}
+			pos++
+		}
+
+		// If no terminator was found for this row, include remaining data
+		// as the last row (handles files without trailing newline).
+		if !found && start < len(data) {
+			rows = append(rows, data[start:])
+			break
+		}
 	}
-	length := len(line)
-	if length > 0 {
-		line = line[:length-1]
-	}
-	return
+
+	return rows
 }
 
 // decodeRunlength decodes the source line and writes to the given destination.

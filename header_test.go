@@ -421,8 +421,8 @@ func TestParseHeader12LevelNegativeValues(t *testing.T) {
 }
 
 func TestParseHeaderUnknownUnit(t *testing.T) {
-	// RV is not in unitCatalog → DataUnit should be Unit_unknown.
-	header := "RV010000100000124BY 100GP 900x 900\x03"
+	// XX is not in unitCatalog → DataUnit should be Unit_unknown.
+	header := "XX010000100000124BY 100GP 900x 900\x03"
 	c := &Composite{}
 	err := c.parseHeader(bufio.NewReader(strings.NewReader(header)))
 	if err != nil {
