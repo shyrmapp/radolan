@@ -199,10 +199,10 @@ func TestDecodeRunlengthChainedOffset(t *testing.T) {
 
 	dst := make([]float32, 250)
 	line := []byte{
-		0x00,       // line number (skipped)
-		0xFF,       // offset: 255 → chain, adds 239
-		20,         // offset: 20 → adds 4, total pos=243
-		0x12,       // value: 1 rep of class 2 → levels[1]=10.0
+		0x00, // line number (skipped)
+		0xFF, // offset: 255 → chain, adds 239
+		20,   // offset: 20 → adds 4, total pos=243
+		0x12, // value: 1 rep of class 2 → levels[1]=10.0
 	}
 
 	if err := c.decodeRunlength(dst, line); err != nil {
@@ -327,24 +327,6 @@ func TestDecodeLittleEndianSizeMismatch(t *testing.T) {
 }
 
 // --- Single-byte edge cases ---
-
-func TestRvp6SingleByteNonDBZ(t *testing.T) {
-	// Unit_mm → no dBZ conversion, just precision scaling.
-	c := &Composite{DataUnit: Unit_mm, precisionMult: 0.1}
-	result := c.rvp6SingleByte(100)
-	want := float32(100) * 0.1
-	if math.Abs(float64(result-want)) > 1e-4 {
-		t.Errorf("rvp6SingleByte(100) = %v; want %v", result, want)
-	}
-}
-
-func TestRvp6SingleByteNaN(t *testing.T) {
-	c := &Composite{DataUnit: Unit_dBZ, precisionMult: 1.0}
-	result := c.rvp6SingleByte(250)
-	if !IsNaN(result) {
-		t.Errorf("rvp6SingleByte(250) = %v; want NaN", result)
-	}
-}
 
 func TestDecodeSingleByteSizeMismatch(t *testing.T) {
 	c := &Composite{DataUnit: Unit_dBZ, precisionMult: 1.0}

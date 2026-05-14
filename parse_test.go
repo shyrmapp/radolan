@@ -11,9 +11,10 @@ import (
 // no-data flag, and vertical flip after the single-buffer allocation change.
 //
 // Encoding rules (precision=0, Unit_dBZ):
-//   tuple = [low, high]; value = (high&0x0F)<<8 | low
-//   bit5 of high = no-data → NaN
-//   decoded dBZ = float32(value)/2.0 − 32.5
+//
+//	tuple = [low, high]; value = (high&0x0F)<<8 | low
+//	bit5 of high = no-data → NaN
+//	decoded dBZ = float32(value)/2.0 − 32.5
 //
 // The decoder reads binary row 0 first and writes it to PlainData[last] (flip),
 // so binary row 0 → PlainData[2], row 1 → PlainData[1], row 2 → PlainData[0].
@@ -67,9 +68,9 @@ func TestParseSingleByte(t *testing.T) {
 	// Binary row 1: value=250 (NaN),     value=200 (67.5 dBZ)
 	// Binary row 2: value=65 (0.0 dBZ),  value=65  (0.0 dBZ)
 	payload := []byte{
-		65, 100,  // row 0
+		65, 100, // row 0
 		250, 200, // row 1: 250 = no-data sentinel
-		65, 65,   // row 2
+		65, 65, // row 2
 	}
 
 	c := &Composite{Px: 2, Py: 3, Dx: 2, Dy: 3, DataUnit: Unit_dBZ, dataLength: 6}

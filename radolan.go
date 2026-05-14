@@ -66,9 +66,12 @@ import (
 // via PrecipitationRate().
 //
 // The cloud reflectivity factor Z is stored in its logarithmic representation dBZ:
+//
 //	dBZ = 10 * log(Z)
+//
 // Real world geographical coordinates (latitude, longitude) can be projected into the
 // coordinate system of the composite by using the projection method:
+//
 //	// if c.HasProjection
 //	x, y := c.Project(52.51861, 13.40833)	// Berlin (lat, lon)
 //
@@ -76,7 +79,6 @@ import (
 //	rat := radolan.PrecipitationRate(radolan.Doelling98, dbz)	// Rainfall rate (mm/h) using Doelling98 as Z-R relationship
 //
 //	fmt.Println("Rainfall in Berlin [mm/h]:", rat)
-//
 type Composite struct {
 	Product string // composite product label
 
@@ -106,8 +108,8 @@ type Composite struct {
 
 	dataLength int // length of binary section in bytes
 
-	precision     int     // exponent: each raw value is scaled by 10^precision
-	precisionMult float32 // precomputed float32(math.Pow10(precision))
+	precision     int       // exponent: each raw value is scaled by 10^precision
+	precisionMult float32   // precomputed float32(math.Pow10(precision))
 	level         []float32 // maps data value to corresponding index value in runlength based formats
 
 	offx float64 // horizontal projection offset

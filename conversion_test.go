@@ -244,8 +244,8 @@ func TestNeighbourhoodSampleFastSlowParity(t *testing.T) {
 		{15, 28, 40, 28, 15},
 		{0, 15, 28, 40, 0},
 	}
-	for oy := 0; oy < 5; oy++ {
-		for ox := 0; ox < 5; ox++ {
+	for oy := range 5 {
+		for ox := range 5 {
 			fast.Data[2+oy][2+ox] = nbh[oy][ox]
 		}
 	}
@@ -289,8 +289,8 @@ func TestNeighbourhoodSampleFastSlowParity(t *testing.T) {
 	// --- Slow path: 5×5 grid, sample at (0,0,2) → 0−2=−2<0 → bounds-checked ---
 	// In-bounds pixels: x∈[0,2], y∈[0,2] → 9 of 25 cells counted.
 	slow := makeTestGrid(5, 5)
-	for oy := 0; oy < 3; oy++ {
-		for ox := 0; ox < 3; ox++ {
+	for oy := range 3 {
+		for ox := range 3 {
 			slow.Data[oy][ox] = nbh[oy][ox]
 		}
 	}
@@ -299,8 +299,8 @@ func TestNeighbourhoodSampleFastSlowParity(t *testing.T) {
 
 	var sTotal, sMaxWant float64
 	var sCount, sAbove int
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 3; x++ {
+	for y := range 3 {
+		for x := range 3 {
 			dBZ := slow.AtZ(x, y, 0)
 			sCount++
 			if IsNaN(dBZ) || dBZ <= 0 {

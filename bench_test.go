@@ -41,6 +41,18 @@ func BenchmarkPrecipitationRateAdaptive(b *testing.B) {
 	}
 }
 
+// BenchmarkFillNaN_DE1200Row measures the per-row NaN prefill that
+// decodeRunlength runs once per row. DE1200 (1100×1200) hits the bulk
+// path; the result feeds the row-write throughput of runlength decoding.
+func BenchmarkFillNaN_DE1200Row(b *testing.B) {
+	dst := make([]float32, 1200)
+	b.SetBytes(int64(len(dst)) * 4)
+	b.ResetTimer()
+	for b.Loop() {
+		fillNaN(dst)
+	}
+}
+
 func makeBenchComposite(dx, dy int) *Composite {
 	comp := &Composite{Dx: dx, Dy: dy, Dz: 1}
 	flat := make([]float32, dx*dy)

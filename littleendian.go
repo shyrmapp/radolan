@@ -55,30 +55,3 @@ func (c *Composite) decodeLittleEndian(dst []float32, line []byte) error {
 
 	return nil
 }
-
-// rvp6LittleEndian converts the raw two byte tuple of little endian encoded composite products
-// to radar video processor values (rvp-6). NaN may be returned when the no-data flag is set.
-func (c *Composite) rvp6LittleEndian(tuple [2]byte) float32 {
-	var value int = 0x0F & int(tuple[1])
-	value = (value << 8) + int(tuple[0])
-
-	if tuple[1]&(1<<5) != 0 { // error code: no-data
-		return NaN
-	}
-
-	if tuple[1]&(1<<6) != 0 { // flag: negative value
-		value *= -1
-	}
-
-	conv := c.rvp6Raw(value) // set decimal point
-
-	// little endian encoded formats are also used for mm/h
-	if c.DataUnit != Unit_dBZ {
-		return conv
-	}
-
-	// Even though this format supports negative values and custom
-	// precision they do not make use of this and we still have to subtract
-	// the bias and scale it (RADVOR FX, dBZ)
-	return toDBZ(conv)
-}

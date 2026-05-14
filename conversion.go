@@ -9,6 +9,43 @@ func IsNaN(f float32) bool {
 	return f != f
 }
 
+// nanBuf is a prefilled source slice sized to cover any DWD radar row.
+// fillNaN copies from it so wider grids (DE1200, middleEuropean, etc.)
+// reach destination memory via memmove instead of the per-element store
+// loop the compiler emits for `dst[i] = NaN`. Read-only after init, so
+// no synchronisation is needed; concurrent decoders share the buffer.
+const nanBufSize = 2048 // > middleEuropeanGrid width (1500)
+
+var nanBuf = func() []float32 {
+	b := make([]float32, nanBufSize)
+	for i := range b {
+		b[i] = NaN
+	}
+	return b
+}()
+
+// fillNaN sets every element of dst to NaN. For dst lengths <= nanBufSize
+// this is a single memmove; longer slices fall back to repeated copies.
+func fillNaN(dst []float32) {
+	n := len(dst)
+	if n == 0 {
+		return
+	}
+	if n <= len(nanBuf) {
+		copy(dst, nanBuf[:n])
+		return
+	}
+	// Cooperative fill for unusually large rows (no known DWD grid hits
+	// this branch; defensive fallback so the helper is still total).
+	for i := 0; i < n; i += len(nanBuf) {
+		end := i + len(nanBuf)
+		if end > n {
+			end = n
+		}
+		copy(dst[i:end], nanBuf)
+	}
+}
+
 // ZR holds precomputed coefficients for a Z-R relationship Z = a × R^b,
 // enabling O(1) conversion between reflectivity (dBZ) and rainfall rate (mm/h).
 type ZR struct {

@@ -47,21 +47,3 @@ func (c *Composite) decodeSingleByte(dst []float32, line []byte) error {
 
 	return nil
 }
-
-// rvp6SingleByte converts the raw byte of single byte encoded
-// composite products to radar video processor values (rvp-6). NaN may be returned
-// when the no-data flag is set.
-func (c *Composite) rvp6SingleByte(value byte) float32 {
-	if value == 250 { // error code: no-data
-		return NaN
-	}
-
-	conv := c.rvp6Raw(int(value)) // set decimal point
-
-	// not sure if single byte formats are even used for other things than dBZ (RX, dBZ)
-	if c.DataUnit != Unit_dBZ {
-		return conv
-	}
-
-	return toDBZ(conv)
-}

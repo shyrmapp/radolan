@@ -34,26 +34,26 @@ func TestProjectionFunc(t *testing.T) {
 		points [][]float64 // {north, east}
 	}{
 		{
-			name: "DE1200 WGS84 (Format 5)",
+			name:   "DE1200 WGS84 (Format 5)",
 			format: 5, dx: 1100, dy: 1200,
 			points: [][]float64{
-				{55.86208711, 1.463301510},  // NW corner
-				{55.84543856, 18.73161645},  // NE corner
-				{45.68460578, 16.58086935},  // SE corner
-				{45.69642538, 3.566994635},  // SW corner
-				{48.8975, 9.1919},           // Ludwigsburg
-				{52.5200, 13.4050},          // Berlin
-				{48.1351, 11.5820},          // Munich
+				{55.86208711, 1.463301510}, // NW corner
+				{55.84543856, 18.73161645}, // NE corner
+				{45.68460578, 16.58086935}, // SE corner
+				{45.69642538, 3.566994635}, // SW corner
+				{48.8975, 9.1919},          // Ludwigsburg
+				{52.5200, 13.4050},         // Berlin
+				{48.1351, 11.5820},         // Munich
 			},
 		},
 		{
-			name: "National grid sphere (Format 5)",
+			name:   "National grid sphere (Format 5)",
 			format: 5, dx: 900, dy: 900,
 			points: [][]float64{
-				{54.5877, 2.0715},   // NW corner
-				{47.0705, 14.6209},  // SE corner
-				{48.8975, 9.1919},   // Ludwigsburg
-				{52.5200, 13.4050},  // Berlin
+				{54.5877, 2.0715},  // NW corner
+				{47.0705, 14.6209}, // SE corner
+				{48.8975, 9.1919},  // Ludwigsburg
+				{52.5200, 13.4050}, // Berlin
 			},
 		},
 	}
